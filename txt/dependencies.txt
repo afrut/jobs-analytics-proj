@@ -1,0 +1,1 @@
+Install delta lake for spark with python -m pip install delta-spark
