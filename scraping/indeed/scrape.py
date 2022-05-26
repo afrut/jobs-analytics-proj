@@ -1,4 +1,5 @@
-# exec(open(".\\scraping\\indeed\\main.py").read())
+# exec(open("scrape.py").read())
+# python scrape.py
 # A script to scrape basic job information from Indeed
 import subprocess as sp
 import requests
@@ -9,8 +10,6 @@ from selenium.webdriver.chrome.options import Options
 import hashlib
 import time
 import random
-
-dirpath = ".\\scraping\\indeed\\"
 
 def getSoup(url: str, driver) -> BeautifulSoup:
     driver.get(url)
@@ -56,15 +55,15 @@ if __name__ == "__main__":
     hashKeys = set()
     cols = ["jobTitle", "companyName", "companyLocation", "link", "hash"]
     with webdriver.Chrome() as driver:
-        for start in range(860, 900, 10):
+        for start in range(0, 900, 10):
             url = "https://ca.indeed.com/jobs?q=developer&l=Canada&sort=date&filter=0" + f"&start={start}"
             soup = getSoup(url, driver)
             cooked = cookSoup(soup)
 
             # Write to csv
-            with open(dirpath + f"csv\\{start}.csv", "wt") as output:
+            with open(f"csv\\{start}.csv", "wt") as output:
                 for dct in cooked.values():
-                    output.write(",".join([dct[x] for x in cols]) + "\n")
+                    output.write(",".join([f"\"{dct[x]}\"" for x in cols]) + "\n")
             keys = set(cooked.keys())
             subset = keys.issubset(hashKeys)
             if not(subset):
