@@ -1,2 +1,3 @@
 scraping/driver
 scraping/indeed/csv
+__pycache__
