@@ -1,6 +1,6 @@
 # Check to see if a topic exists. If it does, delete and create it. If not, create it.
 #exec(open("initTopic.py").read())
-#python initTopic.py --server [::1]:9092 --config_file config.ini --topic jobs
+#python initTopic.py --config_file config.ini --topic jobs
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.admin import NewTopic
 from time import sleep
@@ -37,7 +37,6 @@ def initTopic(topicName: str, server: str = "[::1]:9092", ac: AdminClient = None
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = ArgumentParser()
-    parser.add_argument("--server", type = str)
     parser.add_argument("--config_file", type = FileType("r"))
     parser.add_argument("--topic", type = str)
     args = parser.parse_args()
@@ -45,12 +44,13 @@ if __name__ == "__main__":
     config_parser = ConfigParser()
     config_parser.read_file(args.config_file)
     config = dict(config_parser['default'])
+    server = config["bootstrap.servers"]
 
     # Create an admin client. Specify server.
-    ac = AdminClient({"bootstrap.servers": args.server})
+    ac = AdminClient({"bootstrap.servers": server})
 
     # Initialize a topic.
-    initTopic(args.topic, args.server)
+    initTopic(args.topic, server)
 
     # Check if topic was created
     topics = ac.list_topics().topics
