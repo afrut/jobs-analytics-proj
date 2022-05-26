@@ -8,7 +8,7 @@ $arrPath = @(
 "D:\src\powershell-scripts\git\",
 "D:\scripts",
 ".\scripts\"
-".\scraping\driver\"
+"D:\scraping\driver\"
 )
 $Env:PATH = $arrPath -join ";"
 $Env:JAVA_HOME="C:\Program Files\Java\jdk1.8.0_202"
