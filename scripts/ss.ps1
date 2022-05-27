@@ -6,7 +6,7 @@ if($args.Length -gt 0)
         --jars "D:\Spark\sqljdbc_10.2\enu\mssql-jdbc-10.2.0.jre8.jar" `
         --conf "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension" `
         --conf "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog" `
-        $args[0]
+        @args # splat the $args array
         # $args[0] `
         # $($Env:SPARK_HOME + "\README.md")
 }
