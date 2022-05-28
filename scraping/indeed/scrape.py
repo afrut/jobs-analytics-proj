@@ -2,8 +2,6 @@
 # python scrape.py
 # A script to scrape basic job information from Indeed
 import subprocess as sp
-import requests
-import random
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
