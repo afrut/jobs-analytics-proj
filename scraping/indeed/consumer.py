@@ -7,6 +7,13 @@ from confluent_kafka import Consumer, OFFSET_BEGINNING
 import re
 from pyspark.sql import SparkSession
 from delta import *
+import random
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import time
+
+from scrape import getSoup
 
 if __name__ == '__main__':
     # Parse the command line.
@@ -43,6 +50,18 @@ if __name__ == '__main__':
         .getOrCreate()
     deltaPath = "D:\\deltalakes\\jobs\\"
 
+    # Given a list of url's 
+    def getSavePosting(ls: list):
+        for entry in ls:
+            url = entry[-2]
+            soup = getSoup(url, driver)
+            entry.append(soup.prettify())
+            ts = random.randint(1,10) + random.random()
+            print(f"Retrieved job posting for {entry[0]} --- {entry[1]} --- {entry[2]}. Sleeping for {ts:.2f}s")
+            time.sleep(ts)
+        df = spark.sparkContext.parallelize(ls).toDF(colNames)
+        df.write.format("delta").mode("append").save(deltaPath)
+
     # Poll for new messages from Kafka and print them.
     ls = []
     colNames = ["JobTitle", "CompanyName", "Location", "Url", "Hash"]
@@ -54,12 +73,17 @@ if __name__ == '__main__':
                 # `session.timeout.ms` for the consumer group to
                 # rebalance and start consuming
                 if len(ls) > 0:
-                    df = spark.sparkContext.parallelize(ls).toDF(colNames)
-                    df.write.format("delta").mode("append").save(deltaPath)
+                    with webdriver.Chrome() as driver:
+                        start = 0
+                        N = len(ls)
+                        while start + 5 < N:
+                            getSavePosting(ls[start : start + 5])
+                            start = start + 5
+                        getSavePosting(ls[start:])
                     ls.clear()
                 print("Waiting...")
             elif msg.error():
-                print("ERROR: %s".format(msg.error()))
+                print("ERROR: {0}".format(msg.error()))
             else:
                 # Extract the (optional) key and value, and print.
                 key = msg.key()
