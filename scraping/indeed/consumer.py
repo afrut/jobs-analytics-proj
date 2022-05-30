@@ -15,6 +15,8 @@ import time
 
 from scrape import getSoup
 
+# TODO: RROR: KafkaError{code=_MAX_POLL_EXCEEDED,val=-147,str="Application maximum poll interval (300000ms) exceeded by 406ms"}
+
 if __name__ == '__main__':
     # Parse the command line.
     parser = ArgumentParser()
