@@ -1,5 +1,7 @@
 #python consumer.py --config_file config.ini --reset
 #ss consumer.py --config_file config.ini --reset
+# A script that subscribes to a kafka topic and retrieves the HTML list for a
+# job listing.
 import sys
 from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
@@ -15,7 +17,9 @@ import time
 
 from scrape import getSoup
 
-# TODO: RROR: KafkaError{code=_MAX_POLL_EXCEEDED,val=-147,str="Application maximum poll interval (300000ms) exceeded by 406ms"}
+# TODO: ERROR: KafkaError{code=_MAX_POLL_EXCEEDED,val=-147,str="Application maximum poll interval (300000ms) exceeded by 406ms"}
+# TODO: Instead of retrieving the HTML of a posting, read this from a Delta Lake to simulate accessing the HTML page.
+# TODO: Use Spark Structured Streaming to read from a kafka topic. Use a UDF (getSavePosting) to retrieve the HTML of the job posting and save this to a Delta Lake.
 
 if __name__ == '__main__':
     # Parse the command line.
@@ -45,7 +49,7 @@ if __name__ == '__main__':
     topics = ["jobs"]
     consumer.subscribe(topics, on_assign = reset_offset)
 
-    # # Create an entry point for spark
+    # Create an entry point for spark
     spark = SparkSession.builder.appName("Test") \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \

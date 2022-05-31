@@ -1,5 +1,8 @@
 #exec(open(".\\scraping\\indeed\\producer.py").read())
 #python producer.py --config_file config.ini
+# A script that produces job listings to a kafka topic
+# A series of csv files serve as the source for testing. This can be replaced
+# with a simple web scraper. See scrape.py.
 from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
 from confluent_kafka import Producer
@@ -28,7 +31,7 @@ if __name__ == "__main__":
     # failed delivery (after retries).
     def delivery_callback(err, msg):
         if err:
-            print('ERROR: Message failed delivery: {}'.format(err))
+            print('ERROR: Message failed delivery: {0}'.format(err))
         else:
             isent = int.from_bytes(msg.value(), "little")
             print(f"    {datetime.now()}: Sent {isent}")
