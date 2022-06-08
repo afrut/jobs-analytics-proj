@@ -3,21 +3,17 @@
 #watchFiles -Command ss -FileFiter
 # A script that subscribes to a kafka topic and retrieves the HTML list for a
 # job listing.
+import datetime
 from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
 from confluent_kafka import Consumer, OFFSET_BEGINNING
-import re
 from pyspark.sql import SparkSession
-from delta import *
-import random
-from pyspark.sql.utils import AnalysisException
-import time
-from selenium import webdriver
-from pyspark.sql.streaming import StreamingQuery
-import datetime
-from time import sleep
 from pyspark.sql.functions import regexp_extract, udf
 from pyspark.sql.types import StringType
+from pyspark.sql.streaming import StreamingQuery
+from pyspark.sql.utils import AnalysisException
+from selenium import webdriver
+from time import sleep
 
 from scrape import getSoup
 
@@ -72,8 +68,11 @@ if __name__ == '__main__':
         write = True
 
     if write:
-        colNames = ["JobTitle", "Company", "Location", "Url", "FingerPrint"]
+        # Register user-defined function to get HTML of job posting
         getSoupUDF = udf(lambda x: getSoupDriver(x), StringType())
+
+        # The value column contains the record of job posting metadata
+        # Split this csv value into its components
         csvValue = streaming.select(streaming["value"].cast("string"))
         pattern = r'"(.+?)","(.+?)","(.+?)","(.+?)","(.+?)"'
         cols = [regexp_extract(csvValue["value"], pattern, 1).alias("JobTitle")
@@ -82,15 +81,14 @@ if __name__ == '__main__':
             ,regexp_extract(csvValue["value"], pattern, 4).alias("Url")
             ,regexp_extract(csvValue["value"], pattern, 5).alias("FingerPrint")]
         separated = csvValue.select(*cols)
+
+        # Get job posting and write to Delta Lake
         query = separated.withColumn("Posting", getSoupUDF(separated["Url"]))\
             .writeStream.format("delta")\
             .outputMode("append")\
             .option("path", deltaPath)\
             .option("checkPointLocation", checkPointLocation)\
             .start()
-            # .writeStream.format("console")\
-            # .outputMode("append")\
-            # .start()
         print(f"Writing data to Delta Lake at {deltaPath}")
 
         # Terminate streaming query after 3 seconds of not receiving new data
