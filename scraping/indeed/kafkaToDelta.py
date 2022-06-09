@@ -22,7 +22,7 @@ if __name__ == '__main__':
     # Parse Kafka configuration file to get bootstrap server
     parser = ArgumentParser()
     parser.add_argument('--config_file', type = FileType('r'))
-    parser.add_argument('--reset', action = 'store_true')
+    parser.add_argument('--reset', action = 'store_true', help = "Read Kafka stream starting from earliest offset")
     args = parser.parse_args()
     config_parser = ConfigParser()
     config_parser.read_file(args.config_file)
@@ -70,9 +70,9 @@ if __name__ == '__main__':
 
     # Define a functions for upsert
     def upsert(microBatchOutputDF, batchId):
-        dt = DeltaTable.forPath(deltaPath)
-        dt.merge(microBatchOutputDF
-            ,dt["FingerPrint"] == microBatchOutputDF["FingerPrint"])\
+        dt = DeltaTable.forPath(spark, deltaPath)
+        dt.alias("table").merge(microBatchOutputDF.alias("updates")
+            ,"table.FingerPrint = updates.FingerPrint")\
             .whenNotMatchedInsert(values = 
             {
                 "JobTitle": microBatchOutputDF["JobTitle"]
@@ -111,10 +111,11 @@ if __name__ == '__main__':
         #.withColumn("Posting", getSoupUDF(separated["Url"]))\
         query = separated.withColumn("Posting", lit(""))\
             .writeStream.format("delta")\
-            .outputMode("append")\
+            .outputMode("update")\
             .option("path", deltaPath)\
-            .option("checkPointLocation", checkPointLocation)\
+            .foreachBatch(upsert)\
             .start()
+            # .option("checkPointLocation", checkPointLocation)\
         print(f"Writing data to Delta Lake at {deltaPath}")
 
         # Terminate streaming query after 3 seconds of not receiving new data
