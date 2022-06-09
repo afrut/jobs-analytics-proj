@@ -8,7 +8,7 @@ from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
 from confluent_kafka import Consumer, OFFSET_BEGINNING
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import regexp_extract, udf, lit, count
+from pyspark.sql.functions import regexp_extract, udf, lit
 from pyspark.sql.types import StringType, StructType, StructField
 from pyspark.sql.streaming import StreamingQuery
 from pyspark.sql.utils import AnalysisException
@@ -68,19 +68,19 @@ if __name__ == '__main__':
         .options(**options)\
         .load()
 
-    # Define a functions for upsert
+    # Define a function for upsert
     def upsert(microBatchOutputDF, batchId):
         dt = DeltaTable.forPath(spark, deltaPath)
         dt.alias("table").merge(microBatchOutputDF.alias("updates")
             ,"table.FingerPrint = updates.FingerPrint")\
-            .whenNotMatchedInsert(values = 
-            {
+            .whenNotMatchedInsert(values = {
                 "JobTitle": "updates.JobTitle"
                 ,"Company": "updates.Company"
                 ,"Location": "updates.Location"
                 ,"Url": "updates.Url"
                 ,"FingerPrint": "updates.FingerPrint"
-            })
+                ,"Posting": lit(None)
+            }).execute()
 
     # Initialize DeltaTable if it doesn't exist
     try:
@@ -119,10 +119,10 @@ if __name__ == '__main__':
 
     # Get job posting and write to Delta Lake
     #.withColumn("Posting", getSoupUDF(separated["Url"]))\
-    query = separated.withColumn("Posting", lit(""))\
+    query = separated\
         .writeStream.format("delta")\
-        .option("path", deltaPath)\
         .outputMode("update")\
+        .option("path", deltaPath)\
         .option("checkPointLocation", checkPointLocation)\
         .foreachBatch(upsert)\
         .start()
