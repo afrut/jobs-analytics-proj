@@ -8,8 +8,8 @@ from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
 from confluent_kafka import Consumer, OFFSET_BEGINNING
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import regexp_extract, udf, lit
-from pyspark.sql.types import StringType
+from pyspark.sql.functions import regexp_extract, udf, lit, count
+from pyspark.sql.types import StringType, StructType, StructField
 from pyspark.sql.streaming import StreamingQuery
 from pyspark.sql.utils import AnalysisException
 from delta.tables import *
@@ -75,53 +75,61 @@ if __name__ == '__main__':
             ,"table.FingerPrint = updates.FingerPrint")\
             .whenNotMatchedInsert(values = 
             {
-                "JobTitle": microBatchOutputDF["JobTitle"]
-                ,"Company": microBatchOutputDF["Company"]
-                ,"Location": microBatchOutputDF["Location"]
-                ,"Url": microBatchOutputDF["Url"]
-                ,"FingerPrint": microBatchOutputDF["FingerPrint"]
+                "JobTitle": "updates.JobTitle"
+                ,"Company": "updates.Company"
+                ,"Location": "updates.Location"
+                ,"Url": "updates.Url"
+                ,"FingerPrint": "updates.FingerPrint"
             })
 
-    # Check if Delta Lake already exists to prevent overwrite
-    write = False
+    # Initialize DeltaTable if it doesn't exist
     try:
-        if spark.read.format("delta")\
-            .option("path", deltaPath).load().count() != 0:
-            write = True
-    except AnalysisException:
-        write = True
+        dt = DeltaTable.forPath(spark, deltaPath)
+    except AnalysisException as e:
+        if os.path.exists(deltaPath):
+            print(f"Path {deltaPath} exists")
+            raise
+        else:
+            schema = StructType([
+                StructField("JobTitle", StringType(), False)
+                ,StructField("Company", StringType(), False)
+                ,StructField("Location", StringType(), False)
+                ,StructField("Url", StringType(), False)
+                ,StructField("FingerPrint", StringType(), False)
+                ,StructField("Posting", StringType(), True)
+            ])
+            df = spark.createDataFrame(data = [], schema = schema)
+            df.write.format("delta")\
+                .option("path", deltaPath)\
+                .save()
 
-    write = True
-    if write:
-        # Register user-defined function to get HTML of job posting
-        getSoupUDF = udf(lambda x: getSoupDriver(x), StringType())
+    # Register user-defined function to get HTML of job posting
+    getSoupUDF = udf(lambda x: getSoupDriver(x), StringType())
 
-        # The value column contains the record of job posting metadata
-        # Split this csv value into its components
-        csvValue = streaming.select(streaming["value"].cast("string"))
-        pattern = r'"(.+?)","(.+?)","(.+?)","(.+?)","(.+?)"'
-        cols = [regexp_extract(csvValue["value"], pattern, 1).alias("JobTitle")
-            ,regexp_extract(csvValue["value"], pattern, 2).alias("Company")
-            ,regexp_extract(csvValue["value"], pattern, 3).alias("Location")
-            ,regexp_extract(csvValue["value"], pattern, 4).alias("Url")
-            ,regexp_extract(csvValue["value"], pattern, 5).alias("FingerPrint")]
-        separated = csvValue.select(*cols)
+    # The value column contains the record of job posting metadata
+    # Split this csv value into its components
+    csvValue = streaming.select(streaming["value"].cast("string"))
+    pattern = r'"(.+?)","(.+?)","(.+?)","(.+?)","(.+?)"'
+    cols = [regexp_extract(csvValue["value"], pattern, 1).alias("JobTitle")
+        ,regexp_extract(csvValue["value"], pattern, 2).alias("Company")
+        ,regexp_extract(csvValue["value"], pattern, 3).alias("Location")
+        ,regexp_extract(csvValue["value"], pattern, 4).alias("Url")
+        ,regexp_extract(csvValue["value"], pattern, 5).alias("FingerPrint")]
+    separated = csvValue.select(*cols)
 
-        # Get job posting and write to Delta Lake
-        #.withColumn("Posting", getSoupUDF(separated["Url"]))\
-        query = separated.withColumn("Posting", lit(""))\
-            .writeStream.format("delta")\
-            .outputMode("update")\
-            .option("path", deltaPath)\
-            .foreachBatch(upsert)\
-            .start()
-            # .option("checkPointLocation", checkPointLocation)\
-        print(f"Writing data to Delta Lake at {deltaPath}")
+    # Get job posting and write to Delta Lake
+    #.withColumn("Posting", getSoupUDF(separated["Url"]))\
+    query = separated.withColumn("Posting", lit(""))\
+        .writeStream.format("delta")\
+        .option("path", deltaPath)\
+        .outputMode("update")\
+        .option("checkPointLocation", checkPointLocation)\
+        .foreachBatch(upsert)\
+        .start()
+    print(f"Writing data to Delta Lake at {deltaPath}")
 
-        # Terminate streaming query after 3 seconds of not receiving new data
-        timeoutNewData(query, 3)
-        query.stop()
-        query.awaitTermination()
-        print(f"Finished writing to Delta Lake at {deltaPath}")
-    else:
-        print(f"Delta lake at {deltaPath} already exists")
+    # Terminate streaming query after 3 seconds of not receiving new data
+    timeoutNewData(query, 3)
+    query.stop()
+    query.awaitTermination()
+    print(f"Finished writing to Delta Lake at {deltaPath}")
