@@ -20,3 +20,4 @@ $Env:KAFKA_HOME="/mnt/d/kafka_2.13-3.1.0"
 $Env:SPARK_HOME="D:\Spark\spark-3.0.3-bin-hadoop2.7"
 $Env:HADOOP_HOME="D:\Spark\hadoop-2.7.1"
 $Env:SPARK_EXAMPLES=$Env:SPARK_HOME + "examples\src\main"
+$Env:PYTHONPATH=$(Get-Item ".\pymodules\").FullName

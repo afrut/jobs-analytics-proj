@@ -17,6 +17,7 @@ from selenium import webdriver
 from time import sleep
 
 from scrape import getSoup
+from streamingFunc import timeoutNewData
 
 if __name__ == '__main__':
     # Parse Kafka configuration file to get bootstrap server
@@ -35,18 +36,6 @@ if __name__ == '__main__':
 
     # Create an entry point for spark
     spark = SparkSession.builder.appName("Test").getOrCreate()
-
-    # Function to terminate query when no new data has arrived in timeout seconds
-    def timeoutNewData(query: StreamingQuery, timeout: int):
-        newData = datetime.datetime.now()
-        while True:
-            sleep(1)
-            dct = query.lastProgress
-            if dct is not None:
-                if dct["numInputRows"] != 0:
-                    newData = datetime.datetime.now()
-                if (datetime.datetime.now() - newData).total_seconds() >= timeout:
-                    break
 
     # User-defined function to get job posting HTML
     def getSoupDriver(url: str):
@@ -133,3 +122,5 @@ if __name__ == '__main__':
     query.stop()
     query.awaitTermination()
     print(f"Finished writing to Delta Lake at {deltaPath}")
+
+    spark.stop()
