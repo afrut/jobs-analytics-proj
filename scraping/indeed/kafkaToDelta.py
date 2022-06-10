@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # Define a function for upsert
     def upsert(microBatchOutputDF, batchId):
         dt = DeltaTable.forPath(spark, deltaPath)
-        dt.alias("table").merge(microBatchOutputDF.alias("updates")
+        dt.alias("table").merge(microBatchOutputDF.dropDuplicates(["FingerPrint"]).alias("updates")
             ,"table.FingerPrint = updates.FingerPrint")\
             .whenNotMatchedInsert(values = {
                 "JobTitle": "updates.JobTitle"
