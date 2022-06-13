@@ -108,7 +108,7 @@ if __name__ == '__main__':
         ,regexp_extract(csvValue["value"], pattern, 5).alias("FingerPrint")]
     separated = csvValue.select(*cols)
 
-    # Get job posting and write to Delta Lake
+    # Write job listing to Delta Lake
     query = separated\
         .writeStream.format("delta")\
         .outputMode("update")\

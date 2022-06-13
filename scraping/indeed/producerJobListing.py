@@ -1,5 +1,5 @@
-#exec(open(".\\scraping\\indeed\\producer.py").read())
-#python producer.py --config_file config.ini
+#exec(open(".\\scraping\\indeed\\producerJobListing.py").read())
+#python producerJobListing.py --config_file config.ini
 # A script that produces job listings to a kafka topic
 # A series of csv files serve as the source for testing. This can be replaced
 # with a simple web scraper. See scrape.py.
@@ -37,7 +37,7 @@ if __name__ == "__main__":
             print(f"    {datetime.now()}: Sent {isent}")
 
     # Initialize topic
-    topic = "jobs"
+    topic = "job-listing"
     initTopic(topic)
 
     # Open csv files and produce each line
