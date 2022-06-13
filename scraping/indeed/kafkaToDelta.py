@@ -69,6 +69,7 @@ if __name__ == '__main__':
                 ,"Url": "updates.Url"
                 ,"FingerPrint": "updates.FingerPrint"
                 ,"Posting": lit(None)
+                ,"PostingFingerPrint": lit(None)
             }).execute()
 
     # Initialize DeltaTable if it doesn't exist
@@ -86,6 +87,7 @@ if __name__ == '__main__':
                 ,StructField("Url", StringType(), False)
                 ,StructField("FingerPrint", StringType(), False)
                 ,StructField("Posting", StringType(), True)
+                ,StructField("PostingFingerPrint", StringType(), True)
             ])
             df = spark.createDataFrame(data = [], schema = schema)
             df.write.format("delta")\
@@ -107,7 +109,6 @@ if __name__ == '__main__':
     separated = csvValue.select(*cols)
 
     # Get job posting and write to Delta Lake
-    #.withColumn("Posting", getSoupUDF(separated["Url"]))\
     query = separated\
         .writeStream.format("delta")\
         .outputMode("update")\
