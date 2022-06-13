@@ -4,23 +4,23 @@
 # A script that uses a Delta Lake as a streaming source and retrieves HTML
 # postings for the associated record.
 
-import os
-from shutil import rmtree
 from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf, count, lit, sha2, col
 from pyspark.sql.types import StringType
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from delta import DeltaTable
 from time import sleep
-from datetime import datetime
 from random import random
 
-from streamingFunc import timeoutNewData
+import warnings
+from datetime import datetime
+from selenium.webdriver.chrome.options import Options
 from scrape import getSoup
+from selenium import webdriver
+
+from streamingFunc import timeoutNewData
 
 if __name__ == '__main__':
     # Parse Kafka configuration file to get bootstrap server
@@ -32,22 +32,25 @@ if __name__ == '__main__':
     config_parser.read_file(args.config_file)
     config = dict(config_parser['default'])
     config.update(config_parser['consumer'])
+
+    # Constants
+    deltaPath = "D:\\deltalakes\\jobs\\"
+    checkPointLocation = "D:\\deltalakes\\getPostingCheckPoint"
     
     # Create an entry point for spark
     conf = SparkConf()
     conf.set("spark.app.name", "Test")
     spark = SparkSession.builder.config(conf = conf).getOrCreate()
-    deltaPath = "D:\\deltalakes\\jobs\\"
-    checkPointLocation = "D:\\deltalakes\\getPostingCheckPoint"
 
     # Function to retrieve HTML of job posting
     def getSoupDriver(url: str):
+        warnings.filterwarnings("ignore", category = DeprecationWarning)
         chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
         chromeDriverPath = "D:\\scraping\\driver\\chromedriver.exe"
         options = Options()
         options.add_argument("--headless")
         options.binary_location = chromePath
-        with webdriver.Chrome(executable_path = chromeDriverPath, chrome_options = options) as driver:
+        with webdriver.Chrome(executable_path = chromeDriverPath, options = options) as driver:
             now = datetime.now()
             print(f"{now} Getting posting")
             return getSoup(url, driver).prettify()
@@ -56,15 +59,16 @@ if __name__ == '__main__':
     # Function to execute upsert on DeltaTable
     def upsert(microBatchOutputDF, batchId):
         deltaTable = DeltaTable.forPath(spark, deltaPath)
+        # Don't use withColumn here for the posting fingerprint as the UDF will
+        # be executed twice.
+        updates = microBatchOutputDF\
+            .withColumn("Posting", getSoupUDF(microBatchOutputDF["value"]))
         deltaTable.alias("table")\
-            .merge(microBatchOutputDF\
-                .withColumn("Posting", getSoupUDF(microBatchOutputDF["value"]))\
-                .withColumn("PostingFingerPrint", sha2(col("Posting"), 256))
-                .alias("updates")
+            .merge(updates.alias("updates")
                 ,"table.FingerPrint = updates.key")\
             .whenMatchedUpdate(set = {
-                "Posting": "updates.Posting"
-                ,"PostingFingerPrint": "updates.PostingFingerPrint"
+                "Posting": updates["Posting"]
+                ,"PostingFingerPrint": sha2(updates["Posting"], 256)
             })\
             .execute()
         now = datetime.now()
