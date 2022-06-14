@@ -1,5 +1,5 @@
 # Check to see if a topic exists. If it does, delete and create it. If not, create it.
-#exec(open("initTopic.py").read())
+#python ..\..\pymodules\initTopic.py --config_file config.ini --topic topic-name
 #python initTopic.py --config_file config.ini --topic jobs
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.admin import NewTopic

@@ -1,21 +1,11 @@
 #ss producerGetPosting.py --config_file config.ini --reset
 # A script that writes jobs to a topic to have their posting acquired.
-import datetime
-import os
-from shutil import rmtree
 from argparse import ArgumentParser, FileType
 from configparser import ConfigParser
-from confluent_kafka import Consumer, OFFSET_BEGINNING
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import regexp_extract, udf, lit, col
-from pyspark.sql.types import StringType, StructType, StructField
-from pyspark.sql.streaming import StreamingQuery
-from pyspark.sql.utils import AnalysisException
+from pyspark.sql.functions import col
 from delta.tables import *
-from selenium import webdriver
-from time import sleep
 
-from scrape import getSoup
 from streamingFunc import timeoutNewData
 from initTopic import initTopic
 
